@@ -1,0 +1,622 @@
+import copy
+
+
+# ============================================================
+# PROCESOS DEL SIGET
+# ============================================================
+
+PROCESOS_CONFIG = [
+    {
+        "id": "P1",
+        "nombre": "Trafico",
+        "llegada": 0,
+        "prioridad": 2,
+        "tiempo": 5,
+        "datos": 500
+    },
+    {
+        "id": "P2",
+        "nombre": "Emergencia",
+        "llegada": 1,
+        "prioridad": 1,
+        "tiempo": 3,
+        "datos": 100
+    },
+    {
+        "id": "P3",
+        "nombre": "Sensores",
+        "llegada": 2,
+        "prioridad": 3,
+        "tiempo": 4,
+        "datos": 250
+    },
+    {
+        "id": "P4",
+        "nombre": "Transporte",
+        "llegada": 3,
+        "prioridad": 2,
+        "tiempo": 2,
+        "datos": 300
+    }
+]
+
+
+# Devuelve una copia de los procesos para no modificar
+# la configuración original.
+def obtener_procesos():
+    return copy.deepcopy(PROCESOS_CONFIG)
+
+
+# ============================================================
+# FUNCIONES PARA MOSTRAR INFORMACIÓN
+# ============================================================
+
+def mostrar_titulo(texto):
+    print("\n" + "=" * 70)
+    print(f"{texto:^70}")
+    print("=" * 70)
+
+
+def mostrar_procesos():
+    mostrar_titulo("PROCESOS DEL SIGET")
+
+    print(
+        f"{'ID':<6}"
+        f"{'Nombre':<15}"
+        f"{'Llegada':<10}"
+        f"{'Prioridad':<12}"
+        f"{'CPU':<8}"
+        f"{'Datos':<10}"
+    )
+
+    print("-" * 70)
+
+    for proceso in PROCESOS_CONFIG:
+
+        if proceso["prioridad"] == 1:
+            prioridad = "Alta"
+        elif proceso["prioridad"] == 2:
+            prioridad = "Media"
+        else:
+            prioridad = "Baja"
+
+        print(
+            f"{proceso['id']:<6}"
+            f"{proceso['nombre']:<15}"
+            f"{proceso['llegada']:<10}"
+            f"{prioridad:<12}"
+            f"{proceso['tiempo']:<8}"
+            f"{proceso['datos']} MB"
+        )
+
+
+# Muestra el estado actual de un proceso.
+def mostrar_estado(tiempo, proceso, estado, restante, detalle=""):
+
+    texto = (
+        f"Tiempo {tiempo:<3} | "
+        f"{proceso['id']} - {proceso['nombre']:<12} | "
+        f"{estado:<11} | "
+        f"CPU restante: {restante}"
+    )
+
+    if detalle:
+        texto += f" | {detalle}"
+
+    print(texto)
+
+
+# ============================================================
+# CÁLCULO DE MÉTRICAS
+# ============================================================
+
+def calcular_metricas(algoritmo, procesos_terminados):
+
+    mostrar_titulo(f"RESULTADOS - {algoritmo}")
+
+    print(
+        f"{'ID':<6}"
+        f"{'Nombre':<14}"
+        f"{'Llegada':<10}"
+        f"{'Final':<10}"
+        f"{'Retorno':<10}"
+        f"{'Espera':<10}"
+        f"{'Respuesta':<10}"
+    )
+
+    print("-" * 70)
+
+    espera_total = 0
+    retorno_total = 0
+    respuesta_total = 0
+
+    for proceso in procesos_terminados:
+
+        retorno = proceso["final"] - proceso["llegada"]
+        espera = retorno - proceso["tiempo"]
+        respuesta = (
+            proceso["primera_ejecucion"]
+            - proceso["llegada"]
+        )
+
+        espera_total += espera
+        retorno_total += retorno
+        respuesta_total += respuesta
+
+        print(
+            f"{proceso['id']:<6}"
+            f"{proceso['nombre']:<14}"
+            f"{proceso['llegada']:<10}"
+            f"{proceso['final']:<10}"
+            f"{retorno:<10}"
+            f"{espera:<10}"
+            f"{respuesta:<10}"
+        )
+
+    cantidad = len(procesos_terminados)
+
+    print("-" * 70)
+
+    print(
+        f"Tiempo promedio de espera: "
+        f"{espera_total / cantidad:.2f}"
+    )
+
+    print(
+        f"Tiempo promedio de retorno: "
+        f"{retorno_total / cantidad:.2f}"
+    )
+
+    print(
+        f"Tiempo promedio de respuesta: "
+        f"{respuesta_total / cantidad:.2f}"
+    )
+
+
+# ============================================================
+# ALGORITMO FIFO
+# ============================================================
+
+def ejecutar_fifo():
+
+    mostrar_titulo("SIMULACIÓN FIFO")
+
+    print("FIFO ejecuta los procesos en el orden de llegada.")
+    print()
+
+    # Ordenamos los procesos según su tiempo de llegada.
+    procesos = sorted(
+        obtener_procesos(),
+        key=lambda proceso: proceso["llegada"]
+    )
+
+    tiempo_actual = 0
+    terminados = []
+
+    for proceso in procesos:
+
+        # Espera si el proceso todavía no ha llegado.
+        while tiempo_actual < proceso["llegada"]:
+
+            print(f"Tiempo {tiempo_actual} | CPU esperando")
+            tiempo_actual += 1
+
+        proceso["primera_ejecucion"] = tiempo_actual
+
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "NUEVO",
+            proceso["tiempo"]
+        )
+
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "LISTO",
+            proceso["tiempo"],
+            "Esperando CPU"
+        )
+
+        # Ejecutamos el proceso hasta terminar.
+        restante = proceso["tiempo"]
+
+        while restante > 0:
+
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "EJECUTANDO",
+                restante
+            )
+
+            restante -= 1
+            tiempo_actual += 1
+
+        # Simulamos una espera de datos.
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "BLOQUEADO",
+            0,
+            "Esperando datos"
+        )
+
+        tiempo_actual += 1
+
+        proceso["final"] = tiempo_actual
+
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "TERMINADO",
+            0
+        )
+
+        terminados.append(proceso)
+
+    calcular_metricas("FIFO", terminados)
+
+
+# ============================================================
+# ALGORITMO ROUND ROBIN
+# ============================================================
+
+def ejecutar_round_robin(quantum=2):
+
+    mostrar_titulo("SIMULACIÓN ROUND ROBIN")
+
+    if quantum <= 0:
+        print("ERROR: el quantum debe ser mayor que 0.")
+        return
+
+    print(f"Quantum utilizado: {quantum}")
+    print("Cada proceso recibe un turno de CPU.")
+    print()
+
+    procesos = obtener_procesos()
+
+    # Procesos ordenados por tiempo de llegada.
+    procesos_por_llegar = sorted(
+        procesos,
+        key=lambda proceso: proceso["llegada"]
+    )
+
+    cola_listos = []
+
+    # Tiempo de CPU que le queda a cada proceso.
+    restantes = {
+        proceso["id"]: proceso["tiempo"]
+        for proceso in procesos
+    }
+
+    # Guarda el primer momento en que cada proceso utiliza la CPU.
+    primera_ejecucion = {
+        proceso["id"]: None
+        for proceso in procesos
+    }
+
+    terminados = []
+    tiempo_actual = 0
+
+    while procesos_por_llegar or cola_listos:
+
+        # Agregamos a la cola los procesos que ya llegaron.
+        nuevos = [
+            proceso
+            for proceso in procesos_por_llegar
+            if proceso["llegada"] <= tiempo_actual
+        ]
+
+        for proceso in nuevos:
+
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "NUEVO",
+                restantes[proceso["id"]]
+            )
+
+            cola_listos.append(proceso)
+            procesos_por_llegar.remove(proceso)
+
+        # Si no hay procesos, la CPU espera.
+        if not cola_listos:
+
+            print(f"Tiempo {tiempo_actual} | CPU esperando")
+            tiempo_actual += 1
+            continue
+
+        # Tomamos el primer proceso de la cola.
+        proceso = cola_listos.pop(0)
+        identificador = proceso["id"]
+
+        # Guardamos el primer momento de ejecución.
+        if primera_ejecucion[identificador] is None:
+
+            primera_ejecucion[identificador] = tiempo_actual
+
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "LISTO",
+                restantes[identificador],
+                "Entra a la cola"
+            )
+
+        # Ejecutamos como máximo el tiempo indicado por el quantum.
+        ejecucion = min(
+            quantum,
+            restantes[identificador]
+        )
+
+        for _ in range(ejecucion):
+
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "EJECUTANDO",
+                restantes[identificador]
+            )
+
+            restantes[identificador] -= 1
+            tiempo_actual += 1
+
+        # Si terminó, pasa a bloqueado y luego a terminado.
+        if restantes[identificador] == 0:
+
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "BLOQUEADO",
+                0,
+                "Esperando datos"
+            )
+
+            tiempo_actual += 1
+
+            proceso["primera_ejecucion"] = (
+                primera_ejecucion[identificador]
+            )
+
+            proceso["final"] = tiempo_actual
+
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "TERMINADO",
+                0
+            )
+
+            terminados.append(proceso)
+
+        else:
+
+            # Si no terminó, vuelve a la cola.
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "LISTO",
+                restantes[identificador],
+                "Espera su próximo turno"
+            )
+
+            cola_listos.append(proceso)
+
+    calcular_metricas("ROUND ROBIN", terminados)
+
+
+# ============================================================
+# ALGORITMO POR PRIORIDAD
+# ============================================================
+
+def ejecutar_prioridad():
+
+    mostrar_titulo("SIMULACIÓN POR PRIORIDAD")
+
+    print("Prioridad 1 = mayor prioridad.")
+    print("La planificación es no expropiativa.")
+    print()
+
+    procesos = obtener_procesos()
+
+    pendientes = procesos[:]
+    terminados = []
+    tiempo_actual = 0
+
+    while pendientes:
+
+        # Buscamos los procesos que ya llegaron.
+        disponibles = [
+            proceso
+            for proceso in pendientes
+            if proceso["llegada"] <= tiempo_actual
+        ]
+
+        # Si no ha llegado ningún proceso, esperamos.
+        if not disponibles:
+
+            print(f"Tiempo {tiempo_actual} | CPU esperando")
+            tiempo_actual += 1
+            continue
+
+        # Se selecciona el proceso con mayor prioridad.
+        # El número menor representa mayor prioridad.
+        proceso = min(
+            disponibles,
+            key=lambda elemento: (
+                elemento["prioridad"],
+                elemento["llegada"]
+            )
+        )
+
+        pendientes.remove(proceso)
+
+        proceso["primera_ejecucion"] = tiempo_actual
+
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "NUEVO",
+            proceso["tiempo"]
+        )
+
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "LISTO",
+            proceso["tiempo"],
+            f"Prioridad {proceso['prioridad']}"
+        )
+
+        # Ejecutamos el proceso.
+        restante = proceso["tiempo"]
+
+        while restante > 0:
+
+            mostrar_estado(
+                tiempo_actual,
+                proceso,
+                "EJECUTANDO",
+                restante,
+                f"Prioridad {proceso['prioridad']}"
+            )
+
+            restante -= 1
+            tiempo_actual += 1
+
+        # Simulamos una espera de datos.
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "BLOQUEADO",
+            0,
+            "Esperando datos"
+        )
+
+        tiempo_actual += 1
+
+        proceso["final"] = tiempo_actual
+
+        mostrar_estado(
+            tiempo_actual,
+            proceso,
+            "TERMINADO",
+            0
+        )
+
+        terminados.append(proceso)
+
+    calcular_metricas("PRIORIDAD", terminados)
+
+
+# ============================================================
+# REINICIAR SIMULADOR
+# ============================================================
+
+def reiniciar():
+
+    print()
+    print("El simulador ha sido reiniciado.")
+    print("Los procesos están disponibles nuevamente.")
+
+
+# ============================================================
+# PAUSA
+# ============================================================
+
+def pausa():
+
+    input("\nPresione ENTER para volver al menú...")
+
+
+# ============================================================
+# MENÚ PRINCIPAL
+# ============================================================
+
+def menu():
+
+    while True:
+
+        mostrar_titulo(
+            "SIMULADOR DE PLANIFICACIÓN DE CPU - SIGET"
+        )
+
+        mostrar_procesos()
+
+        print("""
+MENÚ PRINCIPAL
+
+1. Ejecutar FIFO
+2. Ejecutar Round Robin
+3. Ejecutar Prioridad
+4. Reiniciar simulador
+5. Salir
+""")
+
+        opcion = input(
+            "Seleccione una opción [1-5]: "
+        ).strip()
+
+        if opcion == "1":
+
+            ejecutar_fifo()
+            pausa()
+
+        elif opcion == "2":
+
+            try:
+
+                quantum = int(
+                    input(
+                        "Ingrese el Quantum [recomendado: 2]: "
+                    )
+                )
+
+                if quantum <= 0:
+
+                    print(
+                        "El quantum debe ser mayor que cero."
+                    )
+
+                else:
+
+                    ejecutar_round_robin(quantum)
+
+            except ValueError:
+
+                print(
+                    "ERROR: el quantum debe ser un número entero."
+                )
+
+            pausa()
+
+        elif opcion == "3":
+
+            ejecutar_prioridad()
+            pausa()
+
+        elif opcion == "4":
+
+            reiniciar()
+            pausa()
+
+        elif opcion == "5":
+
+            print()
+            print("Simulador finalizado. ¡Gracias!")
+            break
+
+        else:
+
+            print()
+            print("ERROR: seleccione una opción entre 1 y 5.")
+            pausa()
+
+
+# ============================================================
+# INICIO DEL PROGRAMA
+# ============================================================
+
+if __name__ == "__main__":
+    menu()
