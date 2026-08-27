@@ -3,7 +3,7 @@
 ## Integrantes
 
 * Kevin Galeano
-* Sofía
+* Sofía Pabon
 
 ## Descripción
 
